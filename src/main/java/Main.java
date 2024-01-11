@@ -1,17 +1,25 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.*;
 
 
 public class Main {
-    public static void main(String[] args) throws InterruptedException {
 
-        List<Thread> threads = new ArrayList<>();
-        String[] texts = new String[2
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
+        String[] texts = new String[25];
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("aab", 30_000);
         }
-        long startTs = System.currentTimeMillis(); // start time
+
+        List<Future<Integer>> futures = new ArrayList<>();
+        ExecutorService es = Executors.newFixedThreadPool(4);
+
+        // start time
+        long startTs = System.currentTimeMillis();
 
         for (String text : texts) {
-            Runnable run = () -> {
+            final Callable<Integer> task = () -> {
                 int maxSize = 0;
                 for (int i = 0; i < text.length(); i++) {
                     for (int j = 0; j < text.length(); j++) {
@@ -31,18 +39,34 @@ public class Main {
                     }
                 }
                 System.out.println(text.substring(0, 100) + " -> " + maxSize);
+                return maxSize;
             };
-            Thread thread = new Thread(run);
-            threads.add(thread);
-            thread.start();
+
+            Future<Integer> fut = es.submit(task);
+            futures.add(fut);
         }
-        for (Thread thread1 : threads){
-            thread1.join();
-            System.out.println("Ждем когда поток завершится " + thread1.getName());
-        }
-        long endTs = System.currentTimeMillis(); // end time
+
+
+        int maxSize = futures.stream()
+                .map(Main::getFutureValue)
+                .reduce(Math::max)
+                .get();
+
+
+        long endTs = System.currentTimeMillis();
+
+        System.out.println("Max interval: " + maxSize);
         System.out.println("Time: " + (endTs - startTs) + "ms");
     }
+
+    public static int getFutureValue(Future<Integer> integerFuture) {
+        try {
+            return integerFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static String generateText(String letters, int length) {
         Random random = new Random();
         StringBuilder text = new StringBuilder();
