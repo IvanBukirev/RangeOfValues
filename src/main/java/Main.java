@@ -3,38 +3,35 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.*;
 
-
 public class Main {
 
     public static void main(String[] args) throws InterruptedException, ExecutionException {
         String[] texts = new String[25];
+
+        final ExecutorService threadPool = Executors.newFixedThreadPool(25);
+        List<Future> futures = new ArrayList<>();
+
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("aab", 30_000);
-        }
 
-        List<Future<Integer>> futures = new ArrayList<>();
-        ExecutorService es = Executors.newFixedThreadPool(4);
+            String text = texts[i];
 
-        // start time
-        long startTs = System.currentTimeMillis();
-
-        for (String text : texts) {
-            final Callable<Integer> task = () -> {
+            Callable<Integer> callable = () -> {
                 int maxSize = 0;
-                for (int i = 0; i < text.length(); i++) {
+                for (int s = 0; s < text.length(); s++) {
                     for (int j = 0; j < text.length(); j++) {
-                        if (i >= j) {
+                        if (s >= j) {
                             continue;
                         }
                         boolean bFound = false;
-                        for (int k = i; k < j; k++) {
+                        for (int k = s; k < j; k++) {
                             if (text.charAt(k) == 'b') {
                                 bFound = true;
                                 break;
                             }
                         }
-                        if (!bFound && maxSize < j - i) {
-                            maxSize = j - i;
+                        if (!bFound && maxSize < j - s) {
+                            maxSize = j - s;
                         }
                     }
                 }
@@ -42,29 +39,22 @@ public class Main {
                 return maxSize;
             };
 
-            Future<Integer> fut = es.submit(task);
-            futures.add(fut);
+            futures.add(threadPool.submit(callable));
         }
 
+        long startTs = System.currentTimeMillis();
 
-        int maxSize = futures.stream()
-                .map(Main::getFutureValue)
-                .reduce(Math::max)
-                .get();
+        int maxRange = 0;
+        for (Future<Integer> future : futures) {
+            maxRange = Math.max(maxRange, future.get());
+        }
+        System.out.printf("Максимальный интервал значений: %d%n%n", maxRange);
 
+        long endTs = System.currentTimeMillis(); // end time
 
-        long endTs = System.currentTimeMillis();
-
-        System.out.println("Max interval: " + maxSize);
         System.out.println("Time: " + (endTs - startTs) + "ms");
-    }
 
-    public static int getFutureValue(Future<Integer> integerFuture) {
-        try {
-            return integerFuture.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        threadPool.shutdown();
     }
 
     public static String generateText(String letters, int length) {
