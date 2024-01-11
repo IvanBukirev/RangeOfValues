@@ -1,11 +1,10 @@
-import java.util.*;
+
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
 
         List<Thread> threads = new ArrayList<>();
-        String[] texts = new String[25];
-
+        String[] texts = new String[2
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("aab", 30_000);
         }
